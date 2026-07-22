@@ -61,6 +61,13 @@ class UpdateStudentInfoImport implements ToModel, WithHeadingRow
                     Enrollment::where(['student_id' => $student->id])->where('id', '<>', $currentEnrollment)->update(['is_active' => false]);
                 }
             } else {
+                $student = Student::where('email', $row['email'])->orWhere('username', $row['username'])->first();
+                if($student){
+                    $student->update([
+                        'email' => $student->email.$student->id_number,
+                        'username' => $student->username.$student->username,
+                    ]);
+                }
                 $student = Student::create([
                     'name' => $row['name'],
                     'last_name' => $row['last_name'],
