@@ -235,31 +235,31 @@
                                                                     scope="col"
                                                                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                                                                 >
-                                                                Homework
+                                                                پریزنتیشن
                                                                 </th>
                                                                 <th
                                                                     scope="col"
                                                                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                                                                 >
-                                                                Activity
+                                                                امتحانات صنفی و ارزیابی
                                                                 </th>
                                                                 <th
                                                                     scope="col"
                                                                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                                                                 >
-                                                                    Attendance
+                                                                    فعالیت صنفی و حاضری
                                                                 </th>
                                                                 <th
                                                                     scope="col"
                                                                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                                                                 >
-                                                                Oral
+                                                                کارخانگی
                                                                 </th>
                                                                 <th
                                                                     scope="col"
                                                                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                                                                 >
-                                                                    Written
+                                                                    امتحان تحریری و امتحان تقریری
                                                                 </th>
 
                                                                 <th
