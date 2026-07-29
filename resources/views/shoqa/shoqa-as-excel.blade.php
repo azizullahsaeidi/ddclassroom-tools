@@ -52,17 +52,17 @@
                 <th style="text-align: center;border:1px solid #000 !important;text-weight:bold !important;">ارزیابی
                     {{ $evaluation }}
                 </th>
-                <th style="text-align: center;border:1px solid #000 !important;text-weight:bold !important;">کارخانگی
+                <th style="text-align: center;border:1px solid #000 !important;text-weight:bold !important;">پریزنتیشن
                     {{ $homework }}
                 </th>
-                <th style="text-align: center;border:1px solid #000 !important;text-weight:bold !important;">فعالیت
+                <th style="text-align: center;border:1px solid #000 !important;text-weight:bold !important;">امتحانات صنفی و ارزیابی
                     {{ $activity }}</th>
-                <th style="text-align: center;border:1px solid #000 !important;text-weight:bold !important;">حاضری
+                <th style="text-align: center;border:1px solid #000 !important;text-weight:bold !important;">فعالیت صنفی و حاضری
                     {{ $attendance }}</th>
-                <th style="text-align: center;border:1px solid #000 !important;text-weight:bold !important;">تقریری
+                <th style="text-align: center;border:1px solid #000 !important;text-weight:bold !important;">کارخانگی
                     {{ $oral }}
                 </th>
-                <th style="text-align: center;border:1px solid #000 !important;text-weight:bold !important;">تحریری
+                <th style="text-align: center;border:1px solid #000 !important;text-weight:bold !important;">امتحان تحریری و امتحان تقریری
                     {{ $written }}
                 </th>
                 <th style="text-align: center;border:1px solid #000 !important;text-weight:bold !important;">نام پدر
