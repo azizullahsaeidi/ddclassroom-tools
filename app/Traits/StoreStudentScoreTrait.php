@@ -5,6 +5,7 @@ namespace App\Traits;
 use App\Enums\ResultCardEnum;
 use App\Enums\SubjectMinScoreEnum;
 use App\Models\Score;
+use App\Models\SkippedGradeSubject;
 use App\Models\Student;
 use App\Models\StudentResult;
 
@@ -28,7 +29,7 @@ trait StoreStudentScoreTrait
             $this->createStudentResult($request, $student->id, $where);
 
             $studentResultWhere = [
-                'year' => request()->year,
+                'year' => $request->year,
                 'student_id' => $student->id,
                 'sub_grade_id' => $student->sub_grade_id,
             ];
@@ -68,7 +69,6 @@ trait StoreStudentScoreTrait
                     'is_passed' => $score->total >= $minAmount ? true : false,
                 ]);
 
-            //Score::where($where)->where('type', $type)->first();
             $secondScore = Score::where($where)
                 ->where('type', $type == 1 ? 2 : 1)
                 ->first();
@@ -87,7 +87,8 @@ trait StoreStudentScoreTrait
                     'is_passed' => (float) $secondScore->total + $score->total >= SubjectMinScoreEnum::Success->value ? true : false,
                 ]);
 
-            $this->updateStudentResult($grade, $studentResultWhere, $type);
+            $skippedSubjectsCount = SkippedGradeSubject::where(['sub_grade_id' => $request->sub_grade_id, 'year' => $request->year])->count();
+            $this->updateStudentResult($grade, $studentResultWhere, $type, $skippedSubjectsCount);
         }
     }
 
@@ -109,7 +110,7 @@ trait StoreStudentScoreTrait
         }
     }
 
-    private function updateStudentResult($grade, $studentResultWhere, $type)
+    private function updateStudentResult($grade, $studentResultWhere, $type, $skippedSubjectsCount)
     {
         $studentResult = StudentResult::where($studentResultWhere)->first();
 
@@ -127,8 +128,8 @@ trait StoreStudentScoreTrait
             ->where(['type' => 3, 'is_passed' => true])
             ->count();
 
-        $middleMaxScore = $grade->middle_max_number;
-        $finalMaxScore = $grade->final_max_number;
+        $middleMaxScore = $grade->middle_max_number - ($skippedSubjectsCount * 40);
+        $finalMaxScore = $grade->final_max_number - ($skippedSubjectsCount * 60);
         $totalScores = $middleMaxScore + $finalMaxScore;
 
         $studentResult->update([
@@ -149,14 +150,16 @@ trait StoreStudentScoreTrait
             'subject_passed' => $finalSubjectPassedCount,
         ]);
 
+
+
         if ($type == 1) {
             $studentResult->update([
-                'middle_result_name' => $this->resultStatus($grade, $studentResult, $type),
+                'middle_result_name' => $this->resultStatus($grade, $studentResult, $type, $skippedSubjectsCount),
             ]);
         } else {
             $studentResult->update([
-                'final_result_name' => $this->resultStatus($grade, $studentResult, $type),
-                'result_name' => $this->finalResult($grade, $studentResult),
+                'final_result_name' => $this->resultStatus($grade, $studentResult, $type, $skippedSubjectsCount),
+                'result_name' => $this->finalResult($grade, $studentResult, $skippedSubjectsCount),
             ]);
         }
     }
@@ -176,16 +179,16 @@ trait StoreStudentScoreTrait
         return 5;
     }
 
-    private function resultStatus($grade, $studentResult, $type)
+    private function resultStatus($grade, $studentResult, $type, $skippedSubjectsCount)
     {
         if ($type == 2) {
-            if ($grade->total_subjects > $studentResult->final_subject_passed + 3 || $studentResult->final_result_id == 5) {
+            if (($grade->total_subjects - $skippedSubjectsCount) > $studentResult->final_subject_passed + 3 || $studentResult->final_result_id == 5) {
                 return ResultCardEnum::Repeat->value;
-            } elseif ($grade->total_subjects > $studentResult->final_subject_passed && $studentResult->final_result_id != 5) {
+            } elseif (($grade->total_subjects - $skippedSubjectsCount) > $studentResult->final_subject_passed && $studentResult->final_result_id != 5) {
                 return ResultCardEnum::TrayAgain->value;
             }
         } else {
-            if ($grade->total_subjects > $studentResult->middle_subject_passed || $studentResult->middle_result_id == 5) {
+            if (($grade->total_subjects - $skippedSubjectsCount) > $studentResult->middle_subject_passed || $studentResult->middle_result_id == 5) {
                 return 'ناکام';
             }
         }
@@ -193,11 +196,11 @@ trait StoreStudentScoreTrait
         return 'کامیاب';
     }
 
-    private function finalResult($grade, $studentResult)
+    private function finalResult($grade, $studentResult, $skippedSubjectsCount)
     {
-        if ($grade->total_subjects > $studentResult->subject_passed + 3 || $studentResult->result_id == 5) {
+        if (($grade->total_subjects - $skippedSubjectsCount) > $studentResult->subject_passed + 3 || $studentResult->result_id == 5) {
             return ResultCardEnum::Repeat->value;
-        } elseif ($grade->total_subjects > $studentResult->subject_passed && $studentResult->result_id != 5) {
+        } elseif (($grade->total_subjects - $skippedSubjectsCount) > $studentResult->subject_passed && $studentResult->result_id != 5) {
             return ResultCardEnum::TrayAgain->value;
         }
 

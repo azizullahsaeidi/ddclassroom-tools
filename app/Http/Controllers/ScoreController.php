@@ -9,6 +9,7 @@ use App\Http\Requests\Score\MultipleStudentRequest;
 use App\Http\Requests\ScoreRequest;
 use App\Imports\StudentScoreImport;
 use App\Models\Score;
+use App\Models\SkippedGradeSubject;
 use App\Models\Student;
 use App\Models\SubGrade;
 use App\Models\Subject;
@@ -152,6 +153,8 @@ class ScoreController extends Controller
                 'student_id' => $score->student_id,
             ];
 
+            $skippedSubjectsCount = SkippedGradeSubject::where(['sub_grade_id' => $score->sub_grade_id, 'year' => $score->year])->count();
+
             $studentResultWhere = [
                 'year' => $score->year,
                 'sub_grade_id' => $score->sub_grade_id,
@@ -193,7 +196,8 @@ class ScoreController extends Controller
                     'is_passed' => (float) $secondScore->total + $score->total >= SubjectMinScoreEnum::Success->value ? true : false,
                 ]);
 
-            $this->updateStudentResult($grade, $studentResultWhere, $type);
+
+            $this->updateStudentResult($grade, $studentResultWhere, $type, $skippedSubjectsCount);
 
             DB::commit();
         } catch (Exception $exception) {
@@ -283,8 +287,10 @@ class ScoreController extends Controller
             'sub_grade_id' => $request->sub_grade_id,
             'student_id' => $score->student_id,
         ];
-        $this->updateStudentResult($score->subGrade->grade, $studentResultWhere, 1);
-        $this->updateStudentResult($score->subGrade->grade, $studentResultWhere, 2);
+       $skippedSubjectsCount = SkippedGradeSubject::where(['sub_grade_id' => $request->sub_grade_id, 'year' => $request->year])->count();
+
+        $this->updateStudentResult($score->subGrade->grade, $studentResultWhere, 1, $skippedSubjectsCount);
+        $this->updateStudentResult($score->subGrade->grade, $studentResultWhere, 2, $skippedSubjectsCount);
     }
 
     public function createMidtermScoreBasedOnFinal()
@@ -360,8 +366,9 @@ class ScoreController extends Controller
                     'sub_grade_id' => $request->sub_grade_id,
                 ];
                 $grade = SubGrade::find($request->sub_grade_id)->grade;
-                $this->updateStudentResult($grade, $studentResultWhere, 1);
-                $this->updateStudentResult($grade, $studentResultWhere, 2);
+                $skippedSubjectsCount = SkippedGradeSubject::where(['sub_grade_id' => $request->sub_grade_id, 'year' => $request->year])->count();
+                $this->updateStudentResult($grade, $studentResultWhere, 1, $skippedSubjectsCount);
+                $this->updateStudentResult($grade, $studentResultWhere, 2, $skippedSubjectsCount);
                 DB::commit();
             } else {
                 DB::rollBack();

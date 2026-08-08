@@ -19,6 +19,7 @@ use App\Http\Controllers\StudentResultController;
 use App\Http\Controllers\SubGradeController;
 use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\BackupController;
+use App\Http\Controllers\SkippedGradeSubjectController;
 use App\Http\Controllers\TwoFactorAuthSetupController;
 use App\Http\Controllers\TwoFactorChallengeController;
 use App\Http\Controllers\UserController;
@@ -44,7 +45,7 @@ Route::middleware(['auth', 'verified', '2fa'])->group(function () {
     Route::get('/', [HomeController::class, 'index']);
     Route::get('/dashboard', [HomeController::class, 'index'])->name('dashboard');
     Route::resource('users', UserController::class);
-    
+
     // Report routes
     Route::controller(ReportController::class)->group(function () {
         Route::get('reports/student-results', 'studentResults')->name('reports.student-results');
@@ -52,7 +53,7 @@ Route::middleware(['auth', 'verified', '2fa'])->group(function () {
         Route::get('reports/subject-statistics', 'subjectStatistics')->name('reports.subject-statistics');
         Route::get('reports/grade-9', 'grade9Report')->name('reports.grade-9');
         Route::get('reports/all-students-subject-scores', 'allStudentsSubjectScores')->name('reports.all-students-subject-scores');
-        
+
         // Export routes
         Route::get('reports/student-results/export', 'exportStudentResults')->name('reports.student-results.export');
         Route::get('reports/subject-scores/export', 'exportSubjectScores')->name('reports.subject-scores.export');
@@ -60,7 +61,7 @@ Route::middleware(['auth', 'verified', '2fa'])->group(function () {
         Route::get('reports/grade-9/export', 'exportGrade9')->name('reports.grade-9.export');
         Route::get('reports/all-students-subject-scores/export', 'exportAllStudentsSubjectScores')->name('reports.all-students-subject-scores.export');
     });
-    
+
     Route::get('students/create/multiple', [StudentController::class, 'createMultipleStudents']);
     Route::resource('students', StudentController::class);
     Route::get('edit-student-info', [StudentController::class, 'editStudentInfo']);
@@ -142,6 +143,8 @@ Route::middleware(['auth', 'verified', '2fa'])->group(function () {
         Route::get('student-class-promotion', 'index');
         Route::post('student-class-promotion', 'store')->name('student-class-promotion');
     });
+
+    Route::resource('skipped-grade-subjects',SkippedGradeSubjectController::class);
 
     // Backup routes - only accessible by user id = 1 (checked in controller)
     Route::controller(BackupController::class)->group(function () {

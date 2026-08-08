@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ClassResponsible;
 use App\Models\GradeSubject;
 use App\Models\Result;
+use App\Models\SkippedGradeSubject;
 use App\Models\Student;
 use App\Models\StudentResult;
 use App\Models\SubGradeSubjectSemester;
@@ -53,6 +54,8 @@ class StudentResultCardController extends Controller
             'sub_grade_id' => $subGradeId,
         ];
 
+        $skippedSubjects = SkippedGradeSubject::where(['year' => $year, 'sub_grade_id' => $subGradeId])->pluck('subject_id');
+
         $subjects = GradeSubject::with(['grade:id,name', 'subject'])
             ->with('subject.middle', function ($query) use ($where) {
                 $query->where($where);
@@ -64,6 +67,11 @@ class StudentResultCardController extends Controller
                 $query->where($where);
             })
             ->where('grade_id', $student->subGrade->grade_id)
+            ->where(function($query) use ($skippedSubjects) {
+                if($skippedSubjects){
+                    $query->whereNotIn('subject_id', $skippedSubjects);
+                }
+            })
             ->get();
 
         $results = Result::all();
@@ -130,6 +138,8 @@ class StudentResultCardController extends Controller
             'sub_grade_id' => $subGradeId,
         ];
 
+        $skippedSubjects = SkippedGradeSubject::where(['year' => $year, 'sub_grade_id' => $subGradeId])->pluck('subject_id');
+
         $subjects = GradeSubject::with(['grade:id,name', 'subject'])
             ->with('subject.middle', function ($query) use ($where) {
                 $query->where($where);
@@ -141,6 +151,11 @@ class StudentResultCardController extends Controller
                 $query->where($where);
             })
             ->where('grade_id', $student->subGrade->grade_id)
+            ->where(function($query) use ($skippedSubjects) {
+                if($skippedSubjects){
+                    $query->whereNotIn('subject_id', $skippedSubjects);
+                }
+            })
             ->get();
         $results = Result::all();
 
