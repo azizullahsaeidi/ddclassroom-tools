@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class StudentResult extends Model
 {
-    use BelongsToResult, BelongsToResult, BelongsToStudent, BelongsToSubGrade, BelongsToSubject, BelongsToUser;
+    use BelongsToResult, BelongsToStudent, BelongsToSubGrade, BelongsToSubject, BelongsToUser;
 
     protected $guarded = [];
 }

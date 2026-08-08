@@ -193,6 +193,7 @@ const teams = computed(() => [
     { id: 7, name: "Semester Subjects", href: "/sub-grade-subject-semesters", icon: BookOpenIcon },
     { id: 4, name: "Years", href: "/years", icon: CalendarIcon },
     { id: 5, name: "Homeroom Teacher", href: "/class-responsible", icon: UsersIcon },
+    { id: 8, name: "Skipped Subjects",href: "/skipped-grade-subjects",icon: DocumentDuplicateIcon},
     { id: 6, name: "2FA", href: "/2fa/index", icon: KeyIcon },
 ]);
 const userNavigation = [{ name: "Your profile", href: "#" }];
