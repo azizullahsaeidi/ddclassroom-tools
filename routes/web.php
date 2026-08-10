@@ -16,6 +16,7 @@ use App\Http\Controllers\StudentClassPromotionController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\StudentResultCardController;
 use App\Http\Controllers\StudentResultController;
+use App\Http\Controllers\StudentRetakeOpportunityController;
 use App\Http\Controllers\SubGradeController;
 use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\BackupController;
@@ -63,6 +64,8 @@ Route::middleware(['auth', 'verified', '2fa'])->group(function () {
     });
 
     Route::get('students/create/multiple', [StudentController::class, 'createMultipleStudents']);
+    Route::get('students/retake-opportunities', [StudentRetakeOpportunityController::class, 'index'])->name('students.retake-opportunities');
+    Route::get('students/retake-opportunities/export', [StudentRetakeOpportunityController::class, 'export'])->name('students.retake-opportunities.export');
     Route::resource('students', StudentController::class);
     Route::get('edit-student-info', [StudentController::class, 'editStudentInfo']);
 

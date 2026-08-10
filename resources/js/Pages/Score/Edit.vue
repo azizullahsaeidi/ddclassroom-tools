@@ -24,6 +24,24 @@
                                     - {{ score . sub_grade . name }} - {{ score . type == 1 ? 'چهارنیم ماهه' : 'سالانه' }}
                                 </p>
 
+                                <!-- Retake Chance Selection -->
+                                <div class="mt-6 sm:col-span-3">
+                                    <label for="chance" class="block text-sm font-medium leading-6 text-gray-900">
+                                        Chance</label>
+                                    <div class="mt-2">
+                                        <select id="chance" v-model="form.chance" name="chance"
+                                            :disabled="props.selectedChance === 'third'"
+                                            class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 disabled:bg-gray-100 disabled:cursor-not-allowed">
+                                            <option value="first" :disabled="props.selectedChance === 'second' || props.selectedChance === 'third'">...</option>
+                                            <option value="second" :disabled="props.selectedChance === 'third'">Second Chance</option>
+                                            <option value="third">Third Chance</option>
+                                        </select>
+                                        <p class="mt-2 text-sm text-red-500" v-if="errors.chance">
+                                            {{ errors . chance }}
+                                        </p>
+                                    </div>
+                                </div>
+
                                 <div class="mt-10 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
 
                                     <!-- Written -->
@@ -169,7 +187,7 @@
         router
     } from '@inertiajs/vue3';
 
-    const props = defineProps(['score', 'errors']);
+    const props = defineProps(['score', 'errors', 'retakeOpportunity', 'selectedChance']);
 
     const form = reactive({
         id: props.score.id,
@@ -181,6 +199,7 @@
         homework: props.score.homework ? props.score.homework : 0,
         evaluation: props.score.evaluation ? props.score.evaluation : 0,
         type: props.score.type,
+        chance: props.selectedChance || 'first',
         _method: 'put'
     })
 
@@ -193,6 +212,20 @@
 
     watch([() => form.homework, () => form.activity, () => form.attendance, () => form.evaluation, () => form.written, () => form.verbal], () => {
         form.total = calculateTotalScore(form.homework, form.evaluation, form.written, form.verbal, form.attendance, form.activity);
+    });
+
+    watch(() => form.chance, (newChance) => {
+        const currentChance = props.selectedChance || 'first';
+
+        if (currentChance === 'third' && newChance !== 'third') {
+            form.chance = 'third';
+            return;
+        }
+
+        if (currentChance === 'second' && newChance === 'first') {
+            form.chance = 'second';
+            return;
+        }
     });
 
     function calculateTotalScore(homework, evaluation, written, verbal, attendance, activity) {

@@ -100,6 +100,11 @@ const navigation = computed(() => [
                 icon: AcademicCapIcon,
             },
             {
+                name: "Retake Opportunities",
+                href: "/students/retake-opportunities",
+                icon: DocumentDuplicateIcon,
+            },
+            {
                 name: "Delete Student Score",
                 href: "/student-score/delete-scores",
                 icon: DocumentDuplicateIcon,

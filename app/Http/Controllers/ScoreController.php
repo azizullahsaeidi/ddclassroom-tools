@@ -11,6 +11,7 @@ use App\Imports\StudentScoreImport;
 use App\Models\Score;
 use App\Models\SkippedGradeSubject;
 use App\Models\Student;
+use App\Models\StudentRetakeOpportunity;
 use App\Models\SubGrade;
 use App\Models\Subject;
 use App\Models\User;
@@ -138,7 +139,35 @@ class ScoreController extends Controller
         $score = Score::with(['student:id,name,father_name', 'subGrade:id,name', 'subject'])->find($id);
         $grades = SubGrade::whereIsActive(true)->get();
 
-        return inertia('Score/Edit', ['score' => $score, 'grades' => $grades]);
+        $retakeOpportunity = null;
+        $selectedChance = 'first';
+
+        if ($score) {
+            $year = Year::where('name', $score->year)->first();
+            if ($year) {
+                $retakeOpportunity = StudentRetakeOpportunity::where([
+                    'student_id' => $score->student_id,
+                    'sub_grade_id' => $score->sub_grade_id,
+                    'year_id' => $year->id,
+                    'subject_id' => $score->subject_id,
+                ])->first();
+
+                if ($retakeOpportunity) {
+                    if (is_null($retakeOpportunity->third_chance_date)) {
+                        $selectedChance = 'second';
+                    } else {
+                        $selectedChance = 'third';
+                    }
+                }
+            }
+        }
+
+        return inertia('Score/Edit', [
+            'score' => $score,
+            'grades' => $grades,
+            'retakeOpportunity' => $retakeOpportunity,
+            'selectedChance' => $selectedChance,
+        ]);
     }
 
     public function update(ScoreRequest $request, Score $score)
@@ -146,6 +175,41 @@ class ScoreController extends Controller
         DB::beginTransaction();
 
         try {
+            $year = Year::where('name', $score->year)->first();
+            $yearId = $year->id;
+
+            // Check current retake opportunity status
+            $currentRetakeOpportunity = StudentRetakeOpportunity::where([
+                'student_id' => $score->student_id,
+                'sub_grade_id' => $score->sub_grade_id,
+                'year_id' => $yearId,
+                'subject_id' => $score->subject_id,
+            ])->first();
+
+            $currentChance = 'first';
+            if ($currentRetakeOpportunity) {
+                if (is_null($currentRetakeOpportunity->third_chance_date)) {
+                    $currentChance = 'second';
+                } else {
+                    $currentChance = 'third';
+                }
+            }
+
+            $mainScore = $score->total;
+
+            // Validate chance change
+            $requestedChance = $request->chance ?? 'first';
+
+            // If current is third, cannot change to second or first
+            if ($currentChance === 'third' && $requestedChance !== 'third') {
+                throw new \Exception('Cannot change from third chance to second or first chance.');
+            }
+
+            // If current is second, cannot change to first
+            if ($currentChance === 'second' && $requestedChance === 'first') {
+                throw new \Exception('Cannot change from second chance to first chance.');
+            }
+
             $scoreWhere = [
                 'year' => $score->year,
                 'sub_grade_id' => $score->sub_grade_id,
@@ -177,7 +241,6 @@ class ScoreController extends Controller
                 'is_passed' => $request->total >= $minAmount ? true : false,
             ]);
 
-            //Score::where($scoreWhere)->where('type', $type)->first();
             $secondScore = Score::where($scoreWhere)
                 ->where('type', $type == 1 ? 2 : 1)
                 ->first();
@@ -198,6 +261,36 @@ class ScoreController extends Controller
 
 
             $this->updateStudentResult($grade, $studentResultWhere, $type, $skippedSubjectsCount);
+
+            if($grade->id == 9 || $grade->id !=9 && $type == 2){
+                if ($requestedChance === 'second') {
+                    if ($currentRetakeOpportunity) {
+                        $currentRetakeOpportunity->update([
+                            'second_chance_score' => $score->total,
+                            'second_chance_date' => $currentRetakeOpportunity->second_chance_date ?? now(),
+                            'is_passed' => $score->is_passed,
+                        ]);
+                    } else {
+                        StudentRetakeOpportunity::create([
+                            'student_id' => $secondScore->student_id,
+                            'sub_grade_id' => $secondScore->sub_grade_id,
+                            'year_id' => $yearId,
+                            'subject_id' => $secondScore->subject_id,
+                            'score' => $mainScore,
+                            'second_chance_score' => $secondScore->total,
+                            'second_chance_date' => now(),
+                            'is_passed' => $secondScore->is_passed,
+                        ]);
+                    }
+                } elseif ($requestedChance === 'third' && $currentRetakeOpportunity) {
+                    $currentRetakeOpportunity->update([
+                        'third_chance_score' => $score->total,
+                        'third_chance_date' => $currentRetakeOpportunity->third_chance_date ?? now(),
+                        'is_passed' => $score->is_passed,
+                    ]);
+                }
+            }
+
 
             DB::commit();
         } catch (Exception $exception) {
