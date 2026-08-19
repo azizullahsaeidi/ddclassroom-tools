@@ -20,6 +20,7 @@ use App\Http\Controllers\StudentRetakeOpportunityController;
 use App\Http\Controllers\SubGradeController;
 use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\BackupController;
+use App\Http\Controllers\MonthlyAttendanceLogController;
 use App\Http\Controllers\SkippedGradeSubjectController;
 use App\Http\Controllers\TwoFactorAuthSetupController;
 use App\Http\Controllers\TwoFactorChallengeController;
@@ -153,6 +154,12 @@ Route::middleware(['auth', 'verified', '2fa'])->group(function () {
     Route::controller(BackupController::class)->group(function () {
         Route::get('backup', 'index')->name('backup.index');
         Route::get('backup/download/{disk}/{path}', 'download')->name('backup.download')->where('path', '.*');
+    });
+
+    Route::prefix('monthly-attendance-logs')->controller(MonthlyAttendanceLogController::class)->group(function(){
+        Route::get('/','index')->name('monthly-attendance-logs.index');
+        Route::post('/generate', 'generate')->name('monthly-attendance-logs.generate');
+        Route::post('/send-emails','sendEmails')->name('monthly-attendance-logs.send-emails');
     });
 });
 
