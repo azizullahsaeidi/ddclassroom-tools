@@ -127,6 +127,12 @@ const navigation = computed(() => [
                 href: "/student-attendance-log",
                 icon: CalendarIcon,
             },
+            // Monthly Attendance
+            {
+                name: "Monthly Attendance",
+                href: "/monthly-attendance-logs",
+                icon: DocumentChartBarIcon,
+            },
             {
                 name: "Attendance Shoqa",
                 href: "/create-student-shoqa-score",
