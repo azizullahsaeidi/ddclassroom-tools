@@ -4,108 +4,120 @@ namespace App\Services;
 
 use App\Models\AttendanceLog;
 use App\Models\MonthlyAttendanceLog;
-use App\Models\Student;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Collection;
 
 class GenerateMonthlyAttendanceService
 {
-    public function generate(int $year, int $monthId, int $userId, ?int $subGradeId = null): int
+    public function getResults(int $year, int $monthId, ?int $subGradeId = null): Collection
     {
-        /*
-         * P = Present
-         * L = Late -> considered attended
-         * A = Absent
-         * E = Excused -> excluded from calculation
-         */
-        $attendanceLogs = AttendanceLog::query()
-            ->select('student_id')
-
-            /*
-             * A student should normally have one
-             * sub-grade during the month.
-             */
-            ->selectRaw('MAX(sub_grade_id) as sub_grade_id')
-
-            /*
-             * Because E is excluded by whereIn(),
-             * COUNT(*) = P + L + A
-             */
+        $query = AttendanceLog::query()
+            ->join('students', 'students.id', '=', 'attendance_logs.student_id')
+            ->join('sub_grades', 'sub_grades.id', '=', 'attendance_logs.sub_grade_id')
+            ->select([
+                'attendance_logs.student_id',
+                'attendance_logs.sub_grade_id',
+                'students.name as student_name',
+                'students.father_name',
+                'students.phone',
+                'students.support_type',
+                'sub_grades.full_name as sub_grade_name',
+            ])
             ->selectRaw('COUNT(*) as total_hours')
-
             ->selectRaw(
-                "
-                SUM(
-                    CASE
-                        WHEN status = 'A'
-                        THEN 1
-                        ELSE 0
-                    END
-                ) as total_absences
-            ",
+                "SUM(CASE WHEN attendance_logs.status = 'A' THEN 1 ELSE 0 END) as total_absences",
             )
+            ->where('attendance_logs.year', $year)
+            ->where('attendance_logs.month_id', $monthId)
+            ->whereIn('attendance_logs.status', ['P', 'L', 'A']);
 
-            ->where('year', $year)
-            ->where('month_id', $monthId)
+        if ($subGradeId) {
+            $query->where('attendance_logs.sub_grade_id', $subGradeId);
+        }
 
-            /*
-             * Excused attendance is not part
-             * of the absence calculation.
-             */
-            ->whereIn('status', ['P', 'L', 'A'])
-
-            ->when($subGradeId, function ($query) use ($subGradeId) {
-                $query->where('sub_grade_id', $subGradeId);
-            })
-
-            ->groupBy('student_id')
+        $attendanceLogs = $query
+            ->groupBy(
+                'attendance_logs.student_id',
+                'attendance_logs.sub_grade_id',
+                'students.name',
+                'students.father_name',
+                'students.phone',
+                'students.support_type',
+                'sub_grades.full_name',
+            )
+            ->orderBy('students.name')
             ->get();
 
         if ($attendanceLogs->isEmpty()) {
+            return collect();
+        }
+
+        return $attendanceLogs->map(function ($attendance) use ($year, $monthId) {
+            $totalHours = (int) $attendance->total_hours;
+            $totalAbsences = (int) $attendance->total_absences;
+            $absencePercentage = $totalHours > 0
+                ? round(($totalAbsences / $totalHours) * 100, 2)
+                : 0;
+
+            return [
+                'student_id' => (int) $attendance->student_id,
+                'student_name' => $attendance->student_name,
+                'father_name' => $attendance->father_name,
+                'phone' => $attendance->phone,
+                'sub_grade_id' => (int) $attendance->sub_grade_id,
+                'sub_grade_name' => $attendance->sub_grade_name,
+                'year' => $year,
+                'month_id' => $monthId,
+                'total_hours' => $totalHours,
+                'total_presents' => $totalHours - $totalAbsences,
+                'total_absences' => $totalAbsences,
+                'absence_percentage' => $absencePercentage,
+                'support_type' => $attendance->support_type,
+                'is_eligible_for_support' => $absencePercentage <= 30,
+            ];
+        });
+    }
+
+    public function generate(int $year, int $monthId, int $userId, ?int $subGradeId = null): int
+    {
+        $results = $this->getResults($year, $monthId, $subGradeId);
+
+        if ($results->isEmpty()) {
             return 0;
         }
 
-        /*
-         * Load support types in one query.
-         */
-        $students = Student::query()
-            ->whereIn('id', $attendanceLogs->pluck('student_id'))
-            ->get(['id', 'support_type'])
-            ->keyBy('id');
+        $now = now();
+        $summaries = $results->map(function (array $result) use ($userId, $now) {
+            return [
+                'student_id' => $result['student_id'],
+                'sub_grade_id' => $result['sub_grade_id'],
+                'year' => $result['year'],
+                'month_id' => $result['month_id'],
+                'total_hours' => $result['total_hours'],
+                'total_absences' => $result['total_absences'],
+                'absence_percentage' => $result['absence_percentage'],
+                'support_type' => $result['support_type'],
+                'is_eligible_for_support' => $result['is_eligible_for_support'],
+                'user_id' => $userId,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        })->all();
 
-        DB::transaction(function () use ($attendanceLogs, $students, $year, $monthId, $userId) {
-            foreach ($attendanceLogs as $attendance) {
-                $totalHours = (int) $attendance->total_hours;
+        MonthlyAttendanceLog::query()->upsert(
+            $summaries,
+            ['student_id', 'year', 'month_id'],
+            [
+                'sub_grade_id',
+                'total_hours',
+                'total_absences',
+                'absence_percentage',
+                'support_type',
+                'is_eligible_for_support',
+                'user_id',
+                'updated_at',
+            ],
+        );
 
-                $totalAbsences = (int) $attendance->total_absences;
-
-                /*
-                 * Avoid division by zero.
-                 */
-                $absencePercentage = $totalHours > 0 ? round(($totalAbsences / $totalHours) * 100, 2) : 0;
-
-                $isEligible = $absencePercentage <= 30;
-
-                $student = $students->get($attendance->student_id);
-
-                MonthlyAttendanceLog::query()->updateOrCreate(
-                    [
-                        'student_id' => $attendance->student_id,
-                        'year' => $year,
-                        'month_id' => $monthId,
-                    ],
-                    [
-                        'sub_grade_id' => $attendance->sub_grade_id,
-                        'total_hours' => $totalHours,
-                        'total_absences' => $totalAbsences,
-                        'absence_percentage' => $absencePercentage,
-                        'support_type' => $student?->support_type,
-                        'is_eligible_for_support' => $isEligible,
-                        'user_id' => $userId,
-                    ],
-                );
-            }
-        });
-
-        return $attendanceLogs->count();
+        return $results->count();
     }
 }

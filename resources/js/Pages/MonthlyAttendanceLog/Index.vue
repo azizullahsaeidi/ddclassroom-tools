@@ -17,13 +17,19 @@
                 </div>
 
                 <div class="flex gap-2">
-                    <button
-                        type="button"
-                        @click="generateAttendance"
+                    <a
+                        :href="exportUrl"
+                        class="rounded-md bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600"
+                    >
+                        Export Top-Up Excel
+                    </a>
+
+                    <Link
+                        href="/monthly-attendance-logs/generate"
                         class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
                     >
                         Generate Attendance
-                    </button>
+                    </Link>
 
                     <button
                         type="button"
@@ -156,10 +162,15 @@
         </div>
 
         <!-- Table -->
-        <div
-            class="min-w-full overflow-x-auto overflow-hidden rounded-lg shadow"
-        >
-            <table class="min-w-full divide-y divide-gray-200">
+        <div class="min-w-full overflow-hidden rounded-lg shadow">
+            <div class="border-b border-gray-200 bg-white px-6 py-4">
+                <h3 class="font-semibold text-gray-900">
+                    Monthly Attendance Report — {{ reportPeriod }}
+                </h3>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
                         <!-- Checkbox -->
@@ -175,11 +186,8 @@
                         <th :class="headerClass">Father's Name</th>
                         <th :class="headerClass">Phone Number</th>
                         <th :class="headerClass">Grade / Class</th>
-                        <th :class="headerClass">Attendance</th>
-                        <th :class="headerClass">Absence %</th>
-                        <th :class="headerClass">Support Type</th>
                         <th :class="headerClass">Eligibility</th>
-                        <th :class="headerClass">Email Status</th>
+                        <th :class="headerClass">Attendance</th>
                     </tr>
                 </thead>
 
@@ -214,52 +222,9 @@
                             {{ item.student?.phone ?? "-" }}
                         </td>
 
-                        <!-- Grade -->
+                        <!-- Grade / Class -->
                         <td :class="cellClass">
                             {{ item.sub_grade?.full_name ?? "-" }}
-                        </td>
-
-                        <!-- Attendance -->
-                        <td
-                            class="whitespace-nowrap px-6 py-4 text-sm text-gray-700"
-                        >
-                            <div>
-                                Total:
-                                <strong>
-                                    {{ item.total_hours }}
-                                </strong>
-                            </div>
-
-                            <div class="text-green-600">
-                                Present:
-                                {{ item.total_presents }}
-                            </div>
-
-                            <div class="text-red-600">
-                                Absent:
-                                {{ item.total_absences }}
-                            </div>
-                        </td>
-
-                        <!-- Absence -->
-                        <td class="whitespace-nowrap px-6 py-4 text-sm">
-                            <span
-                                class="font-semibold"
-                                :class="
-                                    Number(item.absence_percentage) > 30
-                                        ? 'text-red-600'
-                                        : 'text-green-600'
-                                "
-                            >
-                                {{
-                                    Number(item.absence_percentage).toFixed(2)
-                                }}%
-                            </span>
-                        </td>
-
-                        <!-- Support -->
-                        <td :class="cellClass">
-                            {{ supportTypeLabel(item.support_type) }}
                         </td>
 
                         <!-- Eligibility -->
@@ -278,29 +243,16 @@
                             </span>
                         </td>
 
-                        <!-- Email -->
-                        <td :class="cellClass">
-                            <span
-                                class="inline-flex rounded-full px-2 py-1 text-xs font-medium"
-                                :class="
-                                    item.is_sent
-                                        ? 'bg-green-100 text-green-700'
-                                        : 'bg-gray-100 text-gray-700'
-                                "
-                            >
-                                {{ item.is_sent ? "Sent" : "Not Sent" }}
+                        <!-- Attendance -->
+                        <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
+                            <span class="font-semibold text-green-600">
+                                {{ item.total_presents }} / {{ item.total_hours }}
                             </span>
-
-                            <div
-                                v-if="item.sent_at"
-                                class="mt-1 text-xs text-gray-500"
-                            >
-                                {{ formatDate(item.sent_at) }}
-                            </div>
                         </td>
                     </tr>
                 </tbody>
-            </table>
+                </table>
+            </div>
         </div>
 
         <NoRecordFound v-if="monthlyAttendanceLogs.data.length === 0" />
@@ -363,6 +315,14 @@ const headerClass =
 
 const cellClass = "px-6 py-4 whitespace-nowrap text-sm text-gray-700";
 
+const reportPeriod = computed(() => {
+    const month = props.months.find(
+        (item) => String(item.id) === String(localFilters.month_id),
+    );
+
+    return `${month?.name || "All Months"} ${localFilters.year || "All Years"}`;
+});
+
 function getData() {
     selectedIds.value = [];
 
@@ -383,54 +343,6 @@ function resetFilters() {
     getData();
 }
 
-function generateAttendance() {
-    if (!localFilters.year || !localFilters.month_id) {
-        Swal.fire(
-            "Missing Information",
-            "Please select Year and Month first.",
-            "warning",
-        );
-
-        return;
-    }
-
-    Swal.fire({
-        title: "Generate attendance?",
-        text: "Existing monthly records will be updated.",
-        icon: "question",
-        showCancelButton: true,
-        confirmButtonText: "Generate",
-        cancelButtonText: "Cancel",
-    }).then((result) => {
-        if (!result.isConfirmed) {
-            return;
-        }
-
-        router.post("/monthly-attendance-logs/generate",
-            {
-                year: localFilters.year,
-
-                month_id: localFilters.month_id,
-
-                sub_grade_id: localFilters.sub_grade_id || null,
-            },
-            {
-                preserveScroll: true,
-
-                onSuccess: () => {
-                    selectedIds.value = [];
-
-                    Swal.fire(
-                        "Success",
-                        "Monthly attendance generated successfully.",
-                        "success",
-                    );
-                },
-            },
-        );
-    });
-}
-
 function canSelect(item) {
     return !item.is_eligible_for_support && !item.is_sent;
 }
@@ -447,6 +359,22 @@ const allSelectableSelected = computed(() => {
     }
 
     return selectableIds.value.every((id) => selectedIds.value.includes(id));
+});
+
+const exportUrl = computed(() => {
+    const params = new URLSearchParams();
+
+    Object.entries(localFilters).forEach(([key, value]) => {
+        if (value !== "" && value !== null && value !== undefined) {
+            params.set(key, value);
+        }
+    });
+
+    const queryString = params.toString();
+
+    return queryString
+        ? `/monthly-attendance-logs/export?${queryString}`
+        : "/monthly-attendance-logs/export";
 });
 
 function toggleSelectAll() {
@@ -499,23 +427,4 @@ function sendEmails() {
     });
 }
 
-function supportTypeLabel(value) {
-    if (value === "credit_card") {
-        return "Credit Card";
-    }
-
-    if (value === "cash") {
-        return "Cash";
-    }
-
-    return "-";
-}
-
-function formatDate(value) {
-    if (!value) {
-        return "";
-    }
-
-    return new Date(value).toLocaleString();
-}
 </script>
