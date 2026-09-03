@@ -3,12 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Exports\ExportMonthlyTopUpReport;
+use App\Jobs\SendHomeroomTeacherMonthlyAttendanceEmail;
 use App\Jobs\SendMonthlyAttendanceEmail;
+use App\Models\ClassResponsible;
 use App\Models\Month;
 use App\Models\MonthlyAttendanceLog;
 use App\Models\SubGrade;
 use App\Models\Year;
 use App\Services\GenerateMonthlyAttendanceService;
+use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -27,6 +31,7 @@ class MonthlyAttendanceLogController extends Controller
                 'sub_grade_id',
                 'total_hours',
                 'total_absences',
+                'absence_percentage',
                 'is_eligible_for_support',
                 'is_sent',
             ])
@@ -52,14 +57,14 @@ class MonthlyAttendanceLogController extends Controller
         }
 
         if ($absencePercentage !== null) {
-            $query->where('absence_percentage', '>=', $absencePercentage);
+            $query->where('absence_percentage', '>', $absencePercentage);
         }
 
         $monthlyAttendanceLogs = $query
             ->orderByDesc('year')
             ->orderByDesc('month_id')
             ->orderByDesc('absence_percentage')
-            ->paginate(2000)
+            ->paginate(500)
             ->appends($request->query());
 
         $subGrades = SubGrade::whereIsActive(true)->orderBy('full_name')->get(['id', 'name', 'full_name']);
@@ -144,12 +149,28 @@ class MonthlyAttendanceLogController extends Controller
             'sub_grade_id' => ['nullable', 'integer', 'exists:sub_grades,id'],
         ]);
 
-        $count = $service->generate(
-            year: (int) $validated['year'],
-            monthId: (int) $validated['month_id'],
-            userId: auth()->id(),
-            subGradeId: isset($validated['sub_grade_id']) ? (int) $validated['sub_grade_id'] : null,
-        );
+        try {
+            $count = $service->generate(
+                year: (int) $validated['year'],
+                monthId: (int) $validated['month_id'],
+                userId: auth()->id(),
+                subGradeId: isset($validated['sub_grade_id']) ? (int) $validated['sub_grade_id'] : null,
+            );
+        } catch (LockTimeoutException) {
+            return redirect()->back()->with(
+                'error',
+                'Attendance generation for this month is already running. Please wait a moment and try again.',
+            );
+        } catch (QueryException $exception) {
+            if ((int) ($exception->errorInfo[1] ?? 0) !== 1205) {
+                throw $exception;
+            }
+
+            return redirect()->back()->with(
+                'error',
+                'Monthly attendance records are locked by another database session. Commit or roll back that session, then try again.',
+            );
+        }
 
         return redirect()
             ->route('monthly-attendance-logs.index', [
@@ -168,20 +189,60 @@ class MonthlyAttendanceLogController extends Controller
             'ids' => ['required', 'array', 'min:1'],
             'ids.*' => ['required', 'integer', 'distinct', 'exists:monthly_attendance_logs,id'],
         ]);
-        $logIds = MonthlyAttendanceLog::query()
+        $logs = MonthlyAttendanceLog::query()
             ->whereIn('id', $validated['ids'])
-            ->where('is_eligible_for_support', false)
             ->where('is_sent', false)
-            ->pluck('id');
+            ->where('absence_percentage', '>', 30)
+            ->get(['id', 'sub_grade_id', 'year']);
 
-        if ($logIds->isEmpty()) {
-            return redirect()->back()->with('error', 'No unsent, ineligible records were selected.');
+        if ($logs->isEmpty()) {
+            return redirect()->back()->with('error', 'No unsent records with more than 30% absence were selected.');
         }
 
-        foreach ($logIds as $logId) {
-            SendMonthlyAttendanceEmail::dispatch($logId);
+        foreach ($logs as $log) {
+            dispatch(new SendMonthlyAttendanceEmail($log->id))->onConnection('database');
         }
 
-        return redirect()->back()->with('success', $logIds->count().' email(s) added to the queue.');
+        $logsByClass = $logs->groupBy(
+            fn ($log) => $log->year.'-'.$log->sub_grade_id,
+        );
+
+        $responsibilities = ClassResponsible::query()
+            ->with('teacher:id,email')
+            ->whereIn('sub_grade_id', $logs->pluck('sub_grade_id')->unique())
+            ->whereIn('year', $logs->pluck('year')->unique())
+            ->get(['teacher_id', 'sub_grade_id', 'year']);
+
+        $teacherLogIds = collect();
+
+        foreach ($responsibilities as $responsibility) {
+            if (! $responsibility->teacher?->email) {
+                continue;
+            }
+
+            $classKey = $responsibility->year.'-'.$responsibility->sub_grade_id;
+            $classLogIds = $logsByClass->get($classKey, collect())->pluck('id');
+
+            if ($classLogIds->isEmpty()) {
+                continue;
+            }
+
+            $currentLogIds = $teacherLogIds->get($responsibility->teacher_id, collect());
+
+            $teacherLogIds->put(
+                $responsibility->teacher_id,
+                $currentLogIds->merge($classLogIds)->unique()->values(),
+            );
+        }
+
+        foreach ($teacherLogIds as $teacherId => $logIds) {
+            dispatch(new SendHomeroomTeacherMonthlyAttendanceEmail((int) $teacherId, $logIds->all()))
+                ->onConnection('database');
+        }
+
+        return redirect()->back()->with(
+            'success',
+            $logs->count().' student email(s) and '.$teacherLogIds->count().' homeroom teacher summary email(s) added to the queue.',
+        );
     }
 }

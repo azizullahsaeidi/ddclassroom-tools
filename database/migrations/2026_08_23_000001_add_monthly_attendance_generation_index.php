@@ -14,26 +14,10 @@ return new class extends Migration
                 'attendance_logs_monthly_summary_index',
             );
         });
-
-        Schema::table('monthly_attendance_logs', function (Blueprint $table) {
-            $table->index(
-                ['year', 'month_id', 'absence_percentage'],
-                'monthly_attendance_period_absence_index',
-            );
-            $table->index(
-                ['sub_grade_id', 'support_type'],
-                'monthly_attendance_grade_support_index',
-            );
-        });
     }
 
     public function down(): void
     {
-        Schema::table('monthly_attendance_logs', function (Blueprint $table) {
-            $table->dropIndex('monthly_attendance_period_absence_index');
-            $table->dropIndex('monthly_attendance_grade_support_index');
-        });
-
         Schema::table('attendance_logs', function (Blueprint $table) {
             $table->dropIndex('attendance_logs_monthly_summary_index');
         });

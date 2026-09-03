@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\AttendanceLog;
 use App\Models\MonthlyAttendanceLog;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 
 class GenerateMonthlyAttendanceService
 {
@@ -79,6 +80,14 @@ class GenerateMonthlyAttendanceService
 
     public function generate(int $year, int $monthId, int $userId, ?int $subGradeId = null): int
     {
+        return Cache::lock("monthly-attendance-generation:{$year}:{$monthId}", 300)
+            ->block(15, function () use ($year, $monthId, $userId, $subGradeId) {
+                return $this->generateWhileLocked($year, $monthId, $userId, $subGradeId);
+            });
+    }
+
+    private function generateWhileLocked(int $year, int $monthId, int $userId, ?int $subGradeId): int
+    {
         $results = $this->getResults($year, $monthId, $subGradeId);
 
         if ($results->isEmpty()) {
@@ -86,37 +95,42 @@ class GenerateMonthlyAttendanceService
         }
 
         $now = now();
-        $summaries = $results->map(function (array $result) use ($userId, $now) {
-            return [
-                'student_id' => $result['student_id'],
-                'sub_grade_id' => $result['sub_grade_id'],
-                'year' => $result['year'],
-                'month_id' => $result['month_id'],
-                'total_hours' => $result['total_hours'],
-                'total_absences' => $result['total_absences'],
-                'absence_percentage' => $result['absence_percentage'],
-                'support_type' => $result['support_type'],
-                'is_eligible_for_support' => $result['is_eligible_for_support'],
-                'user_id' => $userId,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ];
-        })->all();
+        $results
+            ->sortBy('student_id')
+            ->chunk(100)
+            ->each(function (Collection $resultsChunk) use ($userId, $now) {
+                $summaries = $resultsChunk->map(function (array $result) use ($userId, $now) {
+                    return [
+                        'student_id' => $result['student_id'],
+                        'sub_grade_id' => $result['sub_grade_id'],
+                        'year' => $result['year'],
+                        'month_id' => $result['month_id'],
+                        'total_hours' => $result['total_hours'],
+                        'total_absences' => $result['total_absences'],
+                        'absence_percentage' => $result['absence_percentage'],
+                        'support_type' => $result['support_type'],
+                        'is_eligible_for_support' => $result['is_eligible_for_support'],
+                        'user_id' => $userId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                })->all();
 
-        MonthlyAttendanceLog::query()->upsert(
-            $summaries,
-            ['student_id', 'year', 'month_id'],
-            [
-                'sub_grade_id',
-                'total_hours',
-                'total_absences',
-                'absence_percentage',
-                'support_type',
-                'is_eligible_for_support',
-                'user_id',
-                'updated_at',
-            ],
-        );
+                MonthlyAttendanceLog::query()->upsert(
+                    $summaries,
+                    ['student_id', 'year', 'month_id'],
+                    [
+                        'sub_grade_id',
+                        'total_hours',
+                        'total_absences',
+                        'absence_percentage',
+                        'support_type',
+                        'is_eligible_for_support',
+                        'user_id',
+                        'updated_at',
+                    ],
+                );
+            });
 
         return $results->count();
     }

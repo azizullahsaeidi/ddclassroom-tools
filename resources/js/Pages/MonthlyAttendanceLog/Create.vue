@@ -79,9 +79,15 @@
                     v-if="results.length"
                     type="button"
                     @click="generateReport"
-                    class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
+                    :disabled="isGenerating"
+                    class="rounded-md px-4 py-2 text-sm font-semibold text-white"
+                    :class="
+                        isGenerating
+                            ? 'cursor-not-allowed bg-gray-400'
+                            : 'bg-indigo-600 hover:bg-indigo-500'
+                    "
                 >
-                    Generate Report
+                    {{ isGenerating ? "Generating..." : "Generate Report" }}
                 </button>
             </div>
 
@@ -123,7 +129,7 @@
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import NoRecordFound from "./../Partials/NoRecordFound.vue";
 import { Head, Link, router } from "@inertiajs/vue3";
-import { computed, reactive } from "vue";
+import { computed, reactive, ref } from "vue";
 import Swal from "sweetalert2";
 
 const props = defineProps({
@@ -140,6 +146,8 @@ const form = reactive({
     month_id: props.filters?.month_id || "",
     sub_grade_id: props.filters?.sub_grade_id || "",
 });
+
+const isGenerating = ref(false);
 
 const inputClass = "block w-full rounded-md border-gray-300 text-sm focus:border-indigo-500 focus:ring-indigo-500";
 const headerClass = "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider";
@@ -200,11 +208,22 @@ function generateReport() {
             return;
         }
 
-        router.post("/monthly-attendance-logs/generate", {
-            year: form.year,
-            month_id: form.month_id,
-            sub_grade_id: form.sub_grade_id || null,
-        });
+        router.post(
+            route("monthly-attendance-logs.generate"),
+            {
+                year: form.year,
+                month_id: form.month_id,
+                sub_grade_id: form.sub_grade_id || null,
+            },
+            {
+                onStart: () => {
+                    isGenerating.value = true;
+                },
+                onFinish: () => {
+                    isGenerating.value = false;
+                },
+            },
+        );
     });
 }
 </script>

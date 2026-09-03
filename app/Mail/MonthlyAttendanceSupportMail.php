@@ -17,10 +17,10 @@ class MonthlyAttendanceSupportMail extends Mailable
 
     public function build()
     {
-        $grade = $this->resolveGrade();
+        $template = $this->resolveTemplate();
 
-        return $this->subject('Monthly Attendance Report - ' . $this->log->year)
-            ->view("emails.monthly-attendance.grade-{$grade}")
+        return $this->subject('Your Top-Up Status for This Month')
+            ->view("emails.monthly-attendance.{$template}")
             ->with([
                 'log' => $this->log,
                 'student' => $this->log->student,
@@ -28,14 +28,16 @@ class MonthlyAttendanceSupportMail extends Mailable
             ]);
     }
 
-    private function resolveGrade(): int
+    private function resolveTemplate(): string
     {
         $gradeName = $this->log->subGrade?->full_name ?? ($this->log->subGrade?->name ?? '');
 
-        if (preg_match('/(?:grade\s*)?([789])/i', $gradeName, $matches)) {
-            return (int) $matches[1];
+        if (preg_match('/(?:grade\s*)?(1[01]|[789])\b/i', $gradeName, $matches)) {
+            $grade = (int) $matches[1];
+
+            return $grade <= 9 ? 'grade-7-9' : 'grade-10-11';
         }
 
-        throw new RuntimeException('Unable to determine Grade 7, 8, or 9.');
+        throw new RuntimeException('Unable to determine Grade 7, 8, 9, 10, or 11.');
     }
 }

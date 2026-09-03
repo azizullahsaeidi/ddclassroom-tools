@@ -45,6 +45,9 @@ return new class extends Migration
 
             $table->unique(['student_id', 'year', 'month_id']);
 
+            $table->index(['sub_grade_id', 'support_type']);
+            $table->index(['year', 'month_id', 'absence_percentage']);
+
             $table->timestamps();
         });
     }

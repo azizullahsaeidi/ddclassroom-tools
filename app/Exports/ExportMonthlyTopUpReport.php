@@ -57,7 +57,7 @@ class ExportMonthlyTopUpReport extends DefaultValueBinder implements FromQuery, 
         }
 
         if ($this->filters['absence_percentage'] !== null) {
-            $query->where('monthly_attendance_logs.absence_percentage', '>=', $this->filters['absence_percentage']);
+            $query->where('monthly_attendance_logs.absence_percentage', '>', $this->filters['absence_percentage']);
         }
 
         return $query->orderBy('sub_grades.full_name')

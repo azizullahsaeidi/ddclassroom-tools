@@ -42,7 +42,7 @@
                                 : 'bg-green-600 hover:bg-green-500'
                         "
                     >
-                        Send Email
+                        Send Emails
                         <span v-if="selectedIds.length">
                             ({{ selectedIds.length }})
                         </span>
@@ -344,7 +344,10 @@ function resetFilters() {
 }
 
 function canSelect(item) {
-    return !item.is_eligible_for_support && !item.is_sent;
+    return (
+        !item.is_sent &&
+        Number(item.absence_percentage) > 30
+    );
 }
 
 const selectableIds = computed(() => {
@@ -395,10 +398,11 @@ function sendEmails() {
         title: "Send attendance emails?",
         text:
             `${selectedIds.value.length} student(s) ` +
-            "will be added to the email queue.",
+            "will receive individual emails. Each homeroom teacher " +
+            "will receive one summary email.",
         icon: "warning",
         showCancelButton: true,
-        confirmButtonText: "Yes, Send Email",
+        confirmButtonText: "Yes, Send Emails",
         cancelButtonText: "Cancel",
     }).then((result) => {
         if (!result.isConfirmed) {
@@ -418,7 +422,7 @@ function sendEmails() {
 
                     Swal.fire(
                         "Queued",
-                        "The selected emails were added to the queue.",
+                        "The student emails and homeroom teacher summaries were added to the queue.",
                         "success",
                     );
                 },

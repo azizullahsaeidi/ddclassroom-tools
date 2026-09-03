@@ -13,7 +13,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Mail;
 use RuntimeException;
 
-class SendMonthlyAttendanceEmail implements ShouldQueue, ShouldBeUnique
+class SendMonthlyAttendanceEmail implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
@@ -44,7 +44,7 @@ class SendMonthlyAttendanceEmail implements ShouldQueue, ShouldBeUnique
             ->with(['student', 'subGrade', 'month'])
             ->findOrFail($this->monthlyAttendanceLogId);
 
-        if ($monthlyAttendanceLog->is_eligible_for_support) {
+        if ((float) $monthlyAttendanceLog->absence_percentage <= 30) {
             return;
         }
 
@@ -52,11 +52,12 @@ class SendMonthlyAttendanceEmail implements ShouldQueue, ShouldBeUnique
             return;
         }
 
-        if (!$monthlyAttendanceLog->student?->email) {
+        if (! $monthlyAttendanceLog->student?->email) {
             throw new RuntimeException('Student does not have an email address.');
         }
 
-        Mail::to($monthlyAttendanceLog->student->email)->send(new MonthlyAttendanceSupportMail($monthlyAttendanceLog));
+        Mail::to($monthlyAttendanceLog->student->email)
+            ->send(new MonthlyAttendanceSupportMail($monthlyAttendanceLog));
 
         $monthlyAttendanceLog->update([
             'is_sent' => true,
