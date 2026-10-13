@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserTypeEnum;
 use App\Http\Requests\User\CreateUserRequest;
 use App\Http\Requests\User\UpdateUserRequest;
 use App\Models\ClassResponsible;
@@ -10,19 +11,24 @@ use App\Models\User;
 use App\Models\UserType;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
 {
     public function index()
     {
-        $users = User::paginate(50);
+        $users = User::with(['roles:id,name', 'userType:id,name'])->paginate(50);
 
         return inertia('User/Index', ['users' => $users]);
     }
 
     public function create()
     {
-        return inertia('User/Create', ['userTypes' => UserType::all(['id', 'name'])]);
+        return inertia('User/Create', [
+            'userTypes' => UserType::all(['id', 'name']),
+            'roles' => $this->assignableRoles(),
+            'canAssignRoles' => request()->user()->can('roles.edit'),
+        ]);
     }
 
     public function store(CreateUserRequest $request)
@@ -34,6 +40,8 @@ class UserController extends Controller
             'is_active' => $request->is_active == 1 ? true : false,
             'password' => Hash::make($request->password),
         ]);
+
+        $this->syncRoles($request, $user);
 
         // Upload user photo
         if ($request->hasFile('photo')) {
@@ -49,7 +57,16 @@ class UserController extends Controller
         $subGrades = SubGrade::all(['id', 'name']);
         $responsibles = ClassResponsible::where('teacher_id', $user->id)->pluck('id');
 
-        return inertia('User/Edit', ['user' => $user, 'userTypes' => UserType::all(['id', 'name']), 'subGrades' => $subGrades, 'resposibles' => $responsibles]);
+        $user->load('roles:id,name');
+
+        return inertia('User/Edit', [
+            'user' => $user,
+            'userTypes' => UserType::all(['id', 'name']),
+            'subGrades' => $subGrades,
+            'resposibles' => $responsibles,
+            'roles' => $this->assignableRoles(),
+            'canAssignRoles' => request()->user()->can('roles.edit'),
+        ]);
     }
 
     public function update(UpdateUserRequest $request, User $user)
@@ -85,6 +102,7 @@ class UserController extends Controller
         }
 
         $user->save();
+        $this->syncRoles($request, $user);
 
         return redirect('users');
     }
@@ -96,6 +114,36 @@ class UserController extends Controller
             $request->photo->storeAs('profile-photos', $filename, 'public');
 
             return $filename;
+        }
+    }
+
+    private function assignableRoles()
+    {
+        return request()->user()->can('roles.edit')
+            ? Role::orderBy('name')->get(['id', 'name'])
+            : [];
+    }
+
+    private function syncRoles($request, User $user): void
+    {
+        if ($request->user()->can('roles.edit') && $request->has('roles')) {
+            $user->syncRoles($request->input('roles', []));
+
+            if (! $user->wasRecentlyCreated || $request->filled('roles')) {
+                return;
+            }
+        }
+
+        if ($user->roles()->doesntExist()) {
+            $defaultRole = match ((int) $user->user_type_id) {
+                UserTypeEnum::SuperAdmin->value => 'Super Admin',
+                UserTypeEnum::Teacher->value => 'Teacher',
+                default => 'User',
+            };
+
+            if (Role::where('name', $defaultRole)->exists()) {
+                $user->assignRole($defaultRole);
+            }
         }
     }
 }

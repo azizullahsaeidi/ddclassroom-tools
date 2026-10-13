@@ -5,6 +5,9 @@ import { usePage } from "@inertiajs/vue3";
 const page = usePage();
 
 const user = computed(() => page.props.auth.user);
+const permissions = computed(() => page.props.auth.permissions ?? []);
+const can = (permission) =>
+    user.value?.user_type_id === 1 || permissions.value.includes(permission);
 
 import { ref } from "vue";
 import ApplicationLogo from "@/Components/ApplicationLogo.vue";
@@ -33,7 +36,6 @@ import {
     ChartBarIcon,
     ChartPieIcon,
     ChevronRightIcon,
-    Cog6ToothIcon,
     DocumentChartBarIcon,
     DocumentDuplicateIcon,
     FaceSmileIcon,
@@ -73,11 +75,12 @@ const hasActiveChild = (children) => {
 };
 
 const navigation = computed(() => [
-    { name: "Dashboard", href: "/", icon: HomeIcon },
+    { name: "Dashboard", href: "/", icon: HomeIcon, permission: "dashboard.view" },
     {
         name: "Student",
         href: "/",
         icon: UserGroupIcon,
+        permission: "students.view",
         children: [
             {
                 name: "Student List",
@@ -108,6 +111,7 @@ const navigation = computed(() => [
                 name: "Delete Student Score",
                 href: "/student-score/delete-scores",
                 icon: DocumentDuplicateIcon,
+                permission: "scores.delete",
             },
         ],
     },
@@ -116,6 +120,7 @@ const navigation = computed(() => [
         name: "Attendance",
         href: "/",
         icon: ClockIcon,
+        permission: "attendance.view",
         children: [
             {
                 name: "Attendance List",
@@ -145,6 +150,7 @@ const navigation = computed(() => [
         name: "Report",
         href: "/",
         icon: ChartBarIcon,
+        permission: "reports.view",
         children: [
             {
                 name: "Student Results",
@@ -182,10 +188,16 @@ const navigation = computed(() => [
         name: "Student Score",
         href: "/student-score",
         icon: AcademicCapIcon,
+        permission: "scores.view",
     },
 
-    { name: "Shoqa", href: "/shoqa", icon: ChartBarIcon },
-]);
+    { name: "Shoqa", href: "/shoqa", icon: ChartBarIcon, permission: "shoqa.view" },
+]
+    .map((item) => ({
+        ...item,
+        children: item.children?.filter((child) => !child.permission || can(child.permission)),
+    }))
+    .filter((item) => can(item.permission)));
 
 const teams = computed(() => [
     {
@@ -193,20 +205,28 @@ const teams = computed(() => [
         name: "Country",
         href: "/countries",
         icon: GlobeAltIcon,
+        permission: "countries.view",
     },
     {
         id: 2,
         name: "Grades",
         href: "/sub-grades",
         icon: AcademicCapIcon,
+        permission: "grades.view",
     },
-    { id: 3, name: "Subject", href: "/subjects", icon: BookOpenIcon },
-    { id: 7, name: "Semester Subjects", href: "/sub-grade-subject-semesters", icon: BookOpenIcon },
-    { id: 4, name: "Years", href: "/years", icon: CalendarIcon },
-    { id: 5, name: "Homeroom Teacher", href: "/class-responsible", icon: UsersIcon },
-    { id: 8, name: "Skipped Subjects",href: "/skipped-grade-subjects",icon: DocumentDuplicateIcon},
+    { id: 3, name: "Subject", href: "/subjects", icon: BookOpenIcon, permission: "subjects.view" },
+    { id: 7, name: "Semester Subjects", href: "/sub-grade-subject-semesters", icon: BookOpenIcon, permission: "semester-subjects.view" },
+    { id: 4, name: "Years", href: "/years", icon: CalendarIcon, permission: "years.view" },
+    { id: 9, name: "Results", href: "/results", icon: ListBulletIcon, permission: "results.view" },
+    { id: 5, name: "Homeroom Teacher", href: "/class-responsible", icon: UsersIcon, permission: "homeroom-teachers.view" },
+    { id: 8, name: "Skipped Subjects", href: "/skipped-grade-subjects", icon: DocumentDuplicateIcon, permission: "skipped-subjects.view" },
+    { id: 10, name: "Users & Teachers", href: "/users", icon: UsersIcon, permission: "users.view" },
+    { id: 11, name: "Roles", href: "/roles", icon: UserGroupIcon, permission: "roles.view" },
+    { id: 12, name: "Permissions", href: "/permissions", icon: KeyIcon, permission: "permissions.view" },
+    { id: 13, name: "Backups", href: "/backup", icon: FolderIcon, permission: "backups.view" },
+    { id: 14, name: "Logs", href: "/logs", icon: DocumentChartBarIcon, permission: "logs.view" },
     { id: 6, name: "2FA", href: "/2fa/index", icon: KeyIcon },
-]);
+].filter((item) => !item.permission || can(item.permission)));
 const userNavigation = [{ name: "Your profile", href: "#" }];
 
 const sidebarOpen = ref(false);
@@ -394,23 +414,6 @@ const sidebarOpen = ref(false);
                                                     </Link>
                                                 </li>
                                             </ul>
-                                        </li>
-                                        <li class="mt-auto">
-                                            <Link
-                                                href="/users"
-                                                :class="[
-                                                    isActive('/users')
-                                                        ? 'bg-gray-700 text-white'
-                                                        : 'text-gray-400 hover:bg-gray-800 hover:text-white',
-                                                    'group -mx-2 flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6',
-                                                ]"
-                                            >
-                                                <Cog6ToothIcon
-                                                    class="h-6 w-6 shrink-0"
-                                                    aria-hidden="true"
-                                                />
-                                                Users
-                                            </Link>
                                         </li>
                                     </ul>
                                 </nav>
@@ -618,23 +621,6 @@ const sidebarOpen = ref(false);
                                     </DisclosurePanel>
                                 </Disclosure>
                             </div>
-                        </li>
-                        <li class="mt-auto">
-                            <Link
-                                :href="'/users'"
-                                :class="[
-                                    isActive('/users')
-                                        ? 'bg-gray-800 text-white'
-                                        : 'text-gray-400 hover:bg-gray-800 hover:text-white',
-                                    'group -mx-2 flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6',
-                                ]"
-                            >
-                                <Cog6ToothIcon
-                                    class="h-6 w-6 shrink-0"
-                                    aria-hidden="true"
-                                />
-                                Users
-                            </Link>
                         </li>
                     </ul>
                 </nav>

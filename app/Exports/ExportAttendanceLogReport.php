@@ -67,6 +67,8 @@ class ExportAttendanceLogReport implements FromView, ShouldAutoSize
             $query->where('country_id', $request->country_id);
         }
 
+
+
         $students = $query->orderBy('absent_count')->get();
 
         return view('attendance.export-attendance-log-report-as-excel', [

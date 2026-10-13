@@ -70,6 +70,8 @@ class DatabaseSeeder extends Seeder
             ]);
         }
 
+        $this->call(PermissionSeeder::class);
+
         // Seeders
         $this->call(CountrySeeder::class);
         $this->call(YearSeeder::class);

@@ -5,7 +5,7 @@
     <AuthenticatedLayout>
         <!-- User List -->
 
-        <Link href="/users/create"
+        <Link v-if="can('users.create')" href="/users/create"
             class="pointer-events-auto mb-2 rounded-md bg-indigo-600 px-3 py-2 text-[0.8125rem] font-semibold leading-5 text-white hover:bg-indigo-500">
         Create
         </Link>
@@ -23,10 +23,16 @@
                             class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Email
                         </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            User type
+                        </th>
 
                         <th scope="col"
                             class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Status
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Roles
                         </th>
 
                         <th scope="col" class="relative px-6 py-3">
@@ -60,14 +66,26 @@
                             </div>
                         </td>
 
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                            {{ user.user_type?.name }}
+                        </td>
+
                         <!-- user state(Enabled or Disabled) -->
                         <td class="px-6 py-4 whitespace-nowrap">
                             {{ user.is_active ? 'Active' : 'Disabled' }}
                         </td>
 
+                        <td class="px-6 py-4">
+                            <div class="flex flex-wrap gap-1">
+                                <span v-for="role in user.roles" :key="role.id" class="rounded-full bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700">
+                                    {{ role.name }}
+                                </span>
+                            </div>
+                        </td>
+
                         <!-- Edit -->
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <Link :href="'/users/' + user.id + '/edit'" class="text-indigo-600 hover:text-indigo-900">
+                            <Link v-if="can('users.edit')" :href="'/users/' + user.id + '/edit'" class="text-indigo-600 hover:text-indigo-900">
                             Edit</Link>
                         </td>
                     </tr>
@@ -90,8 +108,11 @@
     } from 'vue'
     import {
         Head,
-        Link
+        Link,
+        usePage
     } from '@inertiajs/vue3';
 
     defineProps(['users', 'errors']);
+    const page = usePage();
+    const can = (permission) => page.props.auth.user?.user_type_id === 1 || (page.props.auth.permissions ?? []).includes(permission);
 </script>
