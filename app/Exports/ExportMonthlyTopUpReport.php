@@ -34,8 +34,8 @@ class ExportMonthlyTopUpReport extends DefaultValueBinder implements FromQuery, 
                 'monthly_attendance_logs.total_hours',
                 'monthly_attendance_logs.total_absences',
                 'monthly_attendance_logs.is_eligible_for_support',
-                'students.name as student_name',
-                'students.father_name',
+                'students.fa_name as student_name',
+                'students.fa_father_name as father_name',
                 'students.phone',
                 'sub_grades.full_name as sub_grade_name',
             ]);
@@ -57,7 +57,7 @@ class ExportMonthlyTopUpReport extends DefaultValueBinder implements FromQuery, 
         }
 
         if ($this->filters['absence_percentage'] !== null) {
-            $query->where('monthly_attendance_logs.absence_percentage', '>', $this->filters['absence_percentage']);
+            $query->where('monthly_attendance_logs.absence_percentage', '<', $this->filters['absence_percentage']);
         }
 
         return $query->orderBy('sub_grades.full_name')
