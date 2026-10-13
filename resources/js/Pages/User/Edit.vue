@@ -82,6 +82,17 @@
                                         </div>
                                     </div>
 
+                                    <div v-if="canAssignRoles" class="sm:col-span-6">
+                                        <label class="block text-sm font-medium leading-6 text-gray-900">Roles</label>
+                                        <div class="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                            <label v-for="role in roles" :key="role.id" class="flex items-center gap-2 rounded-md border bg-white px-3 py-2 text-sm">
+                                                <input v-model="form.roles" type="checkbox" :value="role.id" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" />
+                                                {{ role.name }}
+                                            </label>
+                                        </div>
+                                        <p class="mt-2 text-sm text-red-500" v-if="errors.roles">{{ errors.roles }}</p>
+                                    </div>
+
 
 
                                     <!-- Is Active -->
@@ -239,7 +250,7 @@
         router
     } from '@inertiajs/vue3';
 
-    const props = defineProps(['user', 'userTypes', 'errors']);
+    const props = defineProps(['user', 'userTypes', 'errors', 'roles', 'canAssignRoles']);
 
     const form = reactive({
         id: props.user.id,
@@ -253,6 +264,7 @@
         user_signature: props.user.signature,
         signature: null,
         user_photo: props.user.photo,
+        roles: props.user.roles.map((role) => role.id),
         _method: 'put'
     })
 

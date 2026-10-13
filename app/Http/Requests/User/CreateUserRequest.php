@@ -35,6 +35,8 @@ class CreateUserRequest extends FormRequest
             ],
             'is_active' => ['required', 'boolean'],
             'user_type_id' => ['required', 'exists:user_types,id'],
+            'roles' => ['nullable', 'array'],
+            'roles.*' => ['integer', 'exists:roles,id'],
         ];
     }
 }

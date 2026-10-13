@@ -26,6 +26,9 @@ class UpdateUserRequest extends FormRequest
             'name' => ['required', 'string'],
             'email' => ['required', 'email', 'unique:users,email,'.$this->user->id],
             'is_active' => ['required', 'boolean'],
+            'user_type_id' => ['required', 'exists:user_types,id'],
+            'roles' => ['nullable', 'array'],
+            'roles.*' => ['integer', 'exists:roles,id'],
             'password' => ['nullable',
                 'string',
                 Password::min(10)
